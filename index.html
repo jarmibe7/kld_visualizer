@@ -58,14 +58,13 @@
         <section class="explainer-card">
           <h2>What you are seeing</h2>
           <p>
-            The target distribution P (blue) is a fixed mixture of Gaussians (default univariate). 
+            The target distribution P (blue) is a fixed mixture of Gaussians (univariate by default). 
             Q (green) is a single Gaussian approximation being optimized to minimize the KL divergence to P.
             The two plots show the optimization under reverse KL (left) and forward KL (right).
-            Compare how the two KL objectives lead to different solutions. 
             For univariate, use a learning rate of ~0.05. For multivariate, use a learning rate of ~0.003.
             <br><br>
             In the univariate case, the closed-form solution for the KL divergence between two Gaussians is used to compute the loss.
-            In the multivariate case, the KL divergence is approximated by evaluating the distributions on a grid of points and computing the discrete KL divergence.
+            In the multivariate case, the KL divergence is approximated discretely by evaluating the distributions on a grid of points.
           </p>
           <div class="formula-box">
             <p>
