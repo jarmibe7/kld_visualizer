@@ -13,7 +13,7 @@ const state = {
   learningRate: 0.05,
   componentCount: 1,
   components: [
-    { mean: -0.0, variance: 0.35, weight: 1.0 },
+    { mean: -0.0, variance: 0.5, weight: 1.0 },
   ],
   reverse: { ...initialQ },
   forward: { ...initialQ },
