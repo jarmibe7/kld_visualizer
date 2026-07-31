@@ -1,14 +1,14 @@
 :root {
   color-scheme: dark;
-  --bg: #07111f;
-  --surface: rgba(13, 24, 39, 0.94);
-  --surface-2: rgba(20, 34, 56, 0.95);
+  --bg: #050505;
+  --surface: #121212;
+  --surface-2: #1b1b1b;
   --border: rgba(255, 255, 255, 0.12);
-  --text: #f4f7fb;
-  --muted: #8ea0b9;
-  --accent: #64b5f6;
-  --accent-2: #ff8a65;
-  --good: #58d68d;
+  --text: #f4f4f4;
+  --muted: #b8b8b8;
+  --accent: #d9d9d9;
+  --accent-2: #8f969d;
+  --good: #e2e2e2;
   font-family: Inter, "Segoe UI", Roboto, sans-serif;
 }
 
@@ -19,7 +19,7 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: radial-gradient(circle at top, #10213e, var(--bg));
+  background: radial-gradient(circle at top, #171717, var(--bg));
   color: var(--text);
 }
 
@@ -69,10 +69,10 @@ h1 {
   align-items: center;
   padding: 0.55rem 0.8rem;
   border-radius: 999px;
-  background: rgba(100, 181, 246, 0.16);
+  background: rgba(255, 255, 255, 0.08);
   color: var(--accent);
   font-weight: 600;
-  border: 1px solid rgba(100, 181, 246, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .layout {
@@ -126,16 +126,26 @@ button {
 }
 
 button.primary {
-  background: linear-gradient(135deg, var(--accent), #4fa8e3);
-  color: #04101d;
+  background: var(--text);
+  color: #111;
+}
+
+.control-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  align-items: end;
 }
 
 .control-block {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  margin-bottom: 0.8rem;
   color: var(--muted);
+}
+
+.control-block.compact {
+  min-width: 180px;
 }
 
 .control-block span {
@@ -157,15 +167,22 @@ select {
 
 #componentControls {
   display: grid;
-  gap: 0.7rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.8rem;
   margin-top: 0.5rem;
 }
 
 .component-row {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 14px;
-  padding: 0.75rem;
+  padding: 0.8rem;
   background: rgba(255, 255, 255, 0.03);
+}
+
+.component-row label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-weight: 600;
 }
 
 .component-row label {
@@ -217,6 +234,21 @@ select {
   color: var(--text);
   font-family: "Times New Roman", serif;
   font-size: 1rem;
+}
+
+.slider-row {
+  margin-bottom: 1rem;
+}
+
+.slider-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 1rem;
+}
+
+.slider-panel-header {
+  margin-bottom: 0.5rem;
 }
 
 .plots-grid {

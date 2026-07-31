@@ -1,22 +1,39 @@
+// ============================================================================
+// CONSTANTS & STATE
+// ============================================================================
+
 const xMin = -4;
 const xMax = 4;
-const gridPoints = 380;
+const gridPoints = 500;
 const epsilon = 1e-8;
 const initialQ = { mu: 0.05, logSigma: 0.2 };
 
 const state = {
   isPlaying: true,
-  learningRate: 0.025,
-  componentCount: 2,
+  learningRate: 0.05,
+  componentCount: 1,
   components: [
-    { mean: -1.2, variance: 0.35, weight: 0.6 },
-    { mean: 1.3, variance: 0.4, weight: 0.4 },
+    { mean: -0.0, variance: 0.35, weight: 1.0 },
   ],
   reverse: { ...initialQ },
   forward: { ...initialQ },
 };
 
 const elements = {};
+
+function getDefaultLearningRate(componentCount) {
+  return componentCount === 1 ? 0.05 : 0.003;
+}
+
+function syncLearningRateControls() {
+  const learningRateText = state.learningRate.toFixed(3);
+  elements.learningRate.value = learningRateText;
+  elements.learningRateValue.textContent = learningRateText;
+}
+
+// ============================================================================
+// INITIALIZATION & UI CONTROL
+// ============================================================================
 
 function init() {
   elements.toggleButton = document.getElementById("toggleButton");
@@ -42,19 +59,22 @@ function init() {
   elements.resetButton.addEventListener("click", resetOptimization);
   elements.learningRate.addEventListener("input", () => {
     state.learningRate = parseFloat(elements.learningRate.value);
-    elements.learningRateValue.textContent = state.learningRate.toFixed(3);
+    syncLearningRateControls();
   });
   elements.componentCount.addEventListener("change", () => {
     state.componentCount = Number(elements.componentCount.value);
     ensureComponentCount();
+    state.learningRate = getDefaultLearningRate(state.componentCount);
+    syncLearningRateControls();
     renderComponentControls();
     render();
   });
 
   ensureComponentCount();
+  state.learningRate = getDefaultLearningRate(state.componentCount);
   renderComponentControls();
   updateToggleLabel();
-  elements.learningRateValue.textContent = state.learningRate.toFixed(3);
+  syncLearningRateControls();
   requestAnimationFrame(step);
 }
 
@@ -88,6 +108,20 @@ function normalizeWeights() {
   }
   state.components.forEach((component) => {
     component.weight = component.weight / total;
+  });
+}
+
+function syncWeightControls() {
+  const rows = elements.componentControls.querySelectorAll(".component-row");
+  rows.forEach((row, index) => {
+    const weightInput = row.querySelector('input[data-field="weight"]');
+    const weightValue = row.querySelectorAll('.mini-control .value')[2];
+    if (weightInput) {
+      weightInput.value = state.components[index].weight.toFixed(2);
+    }
+    if (weightValue) {
+      weightValue.textContent = state.components[index].weight.toFixed(2);
+    }
   });
 }
 
@@ -126,6 +160,8 @@ function renderComponentControls() {
 
         if (field === "weight") {
           normalizeWeights();
+          syncWeightControls();
+          return;
         }
 
         const valueLabel = event.target.parentElement.querySelector(".value");
@@ -141,6 +177,11 @@ function renderComponentControls() {
   });
 }
 
+// ============================================================================
+// MATHEMATICAL FUNCTIONS (Distributions, Loss, Gradients)
+// ============================================================================
+
+// Build grid of x vals
 function buildGrid() {
   const xs = [];
   const step = (xMax - xMin) / (gridPoints - 1);
@@ -150,12 +191,37 @@ function buildGrid() {
   return xs;
 }
 
+// Build evaluation grid padded beyond visible xMin/xMax to avoid truncation bias
+//
+// Before I was seeing an issue where part of the KLD eval grid would be truncated when
+// the distribution means were near the edge of the evaluation grid. This caused the KLD
+// to be underestimated, shifting the predicted distribution toward the edge of the grid.
+function buildEvalGrid(padMultiplier = 3) {
+  // estimate largest sigma among mixture components and current Qs
+  const compMaxSigma = state.components.reduce((m, c) => Math.max(m, Math.sqrt(c.variance)), 0);
+  const reverseSigma = Math.exp(state.reverse.logSigma || 0);
+  const forwardSigma = Math.exp(state.forward.logSigma || 0);
+  const sigmaMax = Math.max(compMaxSigma, reverseSigma, forwardSigma, 0.5);
+  const pad = padMultiplier * sigmaMax;
+
+  const xMinEval = xMin - pad;
+  const xMaxEval = xMax + pad;
+  const xs = [];
+  const step = (xMaxEval - xMinEval) / (gridPoints - 1);
+  for (let i = 0; i < gridPoints; i += 1) {
+    xs.push(xMinEval + i * step);
+  }
+  return xs;
+}
+
+// Gaussian pdf
 function gaussianPdf(x, mu, sigma) {
   const variance = sigma * sigma;
   const diff = x - mu;
   return (1 / (Math.sqrt(2 * Math.PI * variance))) * Math.exp(-(diff * diff) / (2 * variance));
 }
 
+// Compute gaussian mixture pdf by summing weighted component pdfs along x grid
 function mixturePdf(xs, components) {
   return xs.map((x) => {
     let total = 0;
@@ -166,11 +232,25 @@ function mixturePdf(xs, components) {
   });
 }
 
+// Approximate KL divergence integral using discrete sum over evaluation grid
 function klLoss(type, pValues, qValues) {
   if (type === "reverse") {
     return qValues.reduce((sum, q, index) => sum + q * Math.log(q / pValues[index]), 0);
   }
   return pValues.reduce((sum, p, index) => sum + p * Math.log(p / qValues[index]), 0);
+}
+
+function gaussianKLDivergence(type, pMean, pSigma, qMean, qSigma) {
+  const pVariance = pSigma * pSigma;
+  const qVariance = qSigma * qSigma;
+  if (type === "reverse") {
+    return Math.log(pSigma / qSigma) + (qVariance + (qMean - pMean) * (qMean - pMean)) / (2 * pVariance) - 0.5;
+  }
+  return Math.log(qSigma / pSigma) + (pVariance + (pMean - qMean) * (pMean - qMean)) / (2 * qVariance) - 0.5;
+}
+
+function isSingleGaussianGroundTruth() {
+  return state.components.length === 1;
 }
 
 function numericalGradients(type, pValues, mu, logSigma) {
@@ -189,21 +269,28 @@ function numericalGradients(type, pValues, mu, logSigma) {
 
 function evaluateLoss(type, pValues, mu, logSigma) {
   const sigma = Math.exp(logSigma);
-  const xs = buildGrid();
+  if (isSingleGaussianGroundTruth()) {
+    const component = state.components[0];
+    const pMean = component.mean;
+    const pSigma = Math.sqrt(component.variance);
+    return gaussianKLDivergence(type, pMean, pSigma, mu, sigma);
+  }
+  const xs = buildEvalGrid();
   const qValues = xs.map((x) => Math.max(gaussianPdf(x, mu, sigma), epsilon));
   return klLoss(type, pValues, qValues);
 }
 
 function updatePanel(panelName, type) {
-  const xs = buildGrid();
-  const pValues = mixturePdf(xs, state.components);
+  const xsEval = buildEvalGrid();
+  const pValues = mixturePdf(xsEval, state.components);
   const current = state[panelName];
   const grads = numericalGradients(type, pValues, current.mu, current.logSigma);
   current.mu -= state.learningRate * grads.mu;
   current.logSigma -= state.learningRate * grads.logSigma;
-  current.mu = clamp(current.mu, -3.8, 3.8);
+  current.mu = clamp(current.mu, xMin, xMax);
   current.logSigma = clamp(current.logSigma, -2.4, 1.3);
   const sigma = Math.exp(current.logSigma);
+  const xs = buildGrid();
   const qValues = xs.map((x) => Math.max(gaussianPdf(x, current.mu, sigma), epsilon));
   const loss = klLoss(type, pValues, qValues);
   current.loss = loss;
@@ -213,6 +300,10 @@ function updatePanel(panelName, type) {
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
+
+// ============================================================================
+// RENDERING FUNCTIONS (SVG Plots & Stats Display)
+// ============================================================================
 
 function buildPath(values, color) {
   const width = 560;
@@ -252,7 +343,7 @@ function renderPlot(svg, pValues, qValues) {
   const padding = 24;
   const innerWidth = width - padding * 2;
   const innerHeight = height - padding * 2;
-  const maxVal = Math.max(...pValues, ...qValues, 0.01);
+  const maxVal = Math.max(...pValues, 0.01);
 
   const pPoints = pValues.map((value, index) => {
     const x = padding + (index / (pValues.length - 1)) * innerWidth;
@@ -265,13 +356,25 @@ function renderPlot(svg, pValues, qValues) {
     return `${x.toFixed(2)},${y.toFixed(2)}`;
   });
 
+  // compute numeric peaks for diagnostics
+  const pMax = Math.max(...pValues);
+  const pMaxIdx = pValues.indexOf(pMax);
+  const pMaxX = padding + (pMaxIdx / (pValues.length - 1)) * innerWidth;
+  const qMax = Math.max(...qValues);
+  const qMaxIdx = qValues.indexOf(qMax);
+  const qMaxX = padding + (qMaxIdx / (qValues.length - 1)) * innerWidth;
+
   const baselineY = height - padding;
   svg.innerHTML = `
     <rect x="0" y="0" width="${width}" height="${height}" rx="16" fill="transparent"></rect>
     <line x1="${padding}" y1="${baselineY}" x2="${width - padding}" y2="${baselineY}" stroke="rgba(255,255,255,0.25)" stroke-width="1"></line>
-    <path d="M ${padding},${baselineY} L ${pPoints.join(" L ")} L ${width - padding},${baselineY} Z" fill="rgba(100,181,246,0.24)" stroke="none"></path>
+    <path d="M ${padding},${baselineY} L ${pPoints.join(" L ")} L ${width - padding},${baselineY} Z" fill="rgba(100,181,246,0.16)" stroke="none"></path>
     <polyline points="${pPoints.join(" ")}" fill="none" stroke="#64b5f6" stroke-width="3"></polyline>
-    <polyline points="${qPoints.join(" ")}" fill="none" stroke="#ff8a65" stroke-width="3"></polyline>
+    <polyline points="${qPoints.join(" ")}" fill="none" stroke="#4ade80" stroke-width="3"></polyline>
+    <circle cx="${pMaxX.toFixed(2)}" cy="${(height - padding - (pMax / maxVal) * innerHeight).toFixed(2)}" r="4" fill="#64b5f6" />
+    <circle cx="${qMaxX.toFixed(2)}" cy="${(height - padding - (qMax / maxVal) * innerHeight).toFixed(2)}" r="4" fill="#4ade80" />
+    <text x="${padding + 6}" y="${padding + 14}" fill="#64b5f6" font-size="12">P: ${pMax.toFixed(4)} @ ${(((pMaxIdx/(pValues.length-1))*(xMax-xMin))+xMin).toFixed(2)}</text>
+    <text x="${padding + 6}" y="${padding + 30}" fill="#4ade80" font-size="12">Q: ${qMax.toFixed(4)} @ ${(((qMaxIdx/(qValues.length-1))*(xMax-xMin))+xMin).toFixed(2)}</text>
   `;
 }
 
@@ -300,6 +403,10 @@ function render() {
   renderStats("reverse", reverseData.loss ?? 0, reverseData.mu, reverseSigma);
   renderStats("forward", forwardData.loss ?? 0, forwardData.mu, forwardSigma);
 }
+
+// ============================================================================
+// ANIMATION & STATE UPDATES
+// ============================================================================
 
 function step() {
   if (state.isPlaying) {

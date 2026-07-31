@@ -3,22 +3,27 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>KL Divergence Visualizer</title>
+    <title>KL Divergence Comparison Visualizer</title>
     <link rel="stylesheet" href="styles.css" />
-    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>
+      MathJax = {
+        tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+        svg: { fontCache: 'global' }
+      };
+    </script>
+    <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
   </head>
   <body>
     <div class="app-shell">
       <header class="hero">
         <div>
           <p class="eyebrow">Interactive demo</p>
-          <h1>KL Divergence Visualizer</h1>
+          <h1>Forward vs. Reverse KL Divergence Visualizer</h1>
           <p class="subtitle">
-            Watch how a single Gaussian approximation Q moves toward a fixed target
-            mixture P under reverse KL versus forward KL.
+            Watch how a single Gaussian approximation moves toward a fixed target
+            mixture under reverse and forward Kullback-Leibler divergence.
           </p>
         </div>
-        <div class="pill">Mode-seeking vs. mass-covering</div>
       </header>
 
       <main class="layout">
@@ -31,32 +36,36 @@
             </div>
           </div>
 
-          <label class="control-block">
-            <span>Learning rate</span>
-            <input id="learningRate" type="range" min="0.003" max="0.08" step="0.001" value="0.025" />
-            <strong id="learningRateValue">0.025</strong>
-          </label>
+          <div class="control-strip">
+            <label class="control-block compact">
+              <span>Learning rate</span>
+              <input id="learningRate" type="range" min="0.003" max="0.08" step="0.001" value="0.025" />
+              <strong id="learningRateValue">0.025</strong>
+            </label>
 
-          <label class="control-block">
-            <span>Target components</span>
-            <select id="componentCount">
-              <option value="1">1</option>
-              <option value="2" selected>2</option>
-              <option value="3">3</option>
-              <option value="4">4</option>
-            </select>
-          </label>
-
-          <div id="componentControls"></div>
+            <label class="control-block compact">
+              <span>Target components</span>
+              <select id="componentCount">
+                <option value="1" selected>1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+              </select>
+            </label>
+          </div>
         </section>
 
         <section class="explainer-card">
           <h2>What you are seeing</h2>
           <p>
-            The target distribution P is a fixed mixture of Gaussians. The blue curve
-            is P; the orange line is the learned Gaussian Q. Reverse KL tends to
-            place mass on a single mode and can ignore low-probability regions,
-            whereas forward KL spreads mass to cover the target support.
+            The target distribution P (blue) is a fixed mixture of Gaussians (default univariate). 
+            Q (green) is a single Gaussian approximation being optimized to minimize the KL divergence to P.
+            The two plots show the optimization under reverse KL (left) and forward KL (right).
+            Compare how the two KL objectives lead to different solutions. 
+            For univariate, use a learning rate of ~0.05. For multivariate, use a learning rate of ~0.003.
+            <br><br>
+            In the univariate case, the closed-form solution for the KL divergence between two Gaussians is used to compute the loss.
+            In the multivariate case, the KL divergence is approximated by evaluating the distributions on a grid of points and computing the discrete KL divergence.
           </p>
           <div class="formula-box">
             <p>
@@ -75,11 +84,20 @@
         </section>
       </main>
 
+      <section class="slider-row">
+        <div class="slider-panel">
+          <div class="slider-panel-header">
+            <h2>Sliders</h2>
+          </div>
+          <div id="componentControls"></div>
+        </div>
+      </section>
+
       <section class="plots-grid" id="plotsGrid">
         <article class="plot-card reverse-card">
           <div class="plot-header">
             <h3>Reverse KL</h3>
-            <span class="tag">Mode-seeking</span>
+            <span class="tag">$D_{KL}(Q\|P)$</span>
           </div>
           <svg id="reversePlot" viewBox="0 0 560 320" role="img" aria-label="Reverse KL plot"></svg>
           <div class="stats-box">
@@ -92,7 +110,7 @@
         <article class="plot-card forward-card">
           <div class="plot-header">
             <h3>Forward KL</h3>
-            <span class="tag">Mass-covering</span>
+            <span class="tag">$D_{KL}(P\|Q)$</span>
           </div>
           <svg id="forwardPlot" viewBox="0 0 560 320" role="img" aria-label="Forward KL plot"></svg>
           <div class="stats-box">
