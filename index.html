@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KL Divergence Visualizer</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Interactive demo</p>
+          <h1>KL Divergence Visualizer</h1>
+          <p class="subtitle">
+            Watch how a single Gaussian approximation Q moves toward a fixed target
+            mixture P under reverse KL versus forward KL.
+          </p>
+        </div>
+        <div class="pill">Mode-seeking vs. mass-covering</div>
+      </header>
+
+      <main class="layout">
+        <section class="controls-card">
+          <div class="controls-header">
+            <h2>Controls</h2>
+            <div class="button-row">
+              <button id="toggleButton" class="primary">Pause</button>
+              <button id="resetButton">Reset</button>
+            </div>
+          </div>
+
+          <label class="control-block">
+            <span>Learning rate</span>
+            <input id="learningRate" type="range" min="0.003" max="0.08" step="0.001" value="0.025" />
+            <strong id="learningRateValue">0.025</strong>
+          </label>
+
+          <label class="control-block">
+            <span>Target components</span>
+            <select id="componentCount">
+              <option value="1">1</option>
+              <option value="2" selected>2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+            </select>
+          </label>
+
+          <div id="componentControls"></div>
+        </section>
+
+        <section class="explainer-card">
+          <h2>What you are seeing</h2>
+          <p>
+            The target distribution P is a fixed mixture of Gaussians. The blue curve
+            is P; the orange line is the learned Gaussian Q. Reverse KL tends to
+            place mass on a single mode and can ignore low-probability regions,
+            whereas forward KL spreads mass to cover the target support.
+          </p>
+          <div class="formula-box">
+            <p>
+              <span class="formula-label">Reverse KL</span>
+              <span class="math">
+                $D_{KL}(Q\|P)=\sum_x Q(x)\log\frac{Q(x)}{P(x)}$
+              </span>
+            </p>
+            <p>
+              <span class="formula-label">Forward KL</span>
+              <span class="math">
+                $D_{KL}(P\|Q)=\sum_x P(x)\log\frac{P(x)}{Q(x)}$
+              </span>
+            </p>
+          </div>
+        </section>
+      </main>
+
+      <section class="plots-grid" id="plotsGrid">
+        <article class="plot-card reverse-card">
+          <div class="plot-header">
+            <h3>Reverse KL</h3>
+            <span class="tag">Mode-seeking</span>
+          </div>
+          <svg id="reversePlot" viewBox="0 0 560 320" role="img" aria-label="Reverse KL plot"></svg>
+          <div class="stats-box">
+            <p><span>Loss</span><strong id="reverseLoss">—</strong></p>
+            <p><span>μ</span><strong id="reverseMu">—</strong></p>
+            <p><span>σ</span><strong id="reverseSigma">—</strong></p>
+          </div>
+        </article>
+
+        <article class="plot-card forward-card">
+          <div class="plot-header">
+            <h3>Forward KL</h3>
+            <span class="tag">Mass-covering</span>
+          </div>
+          <svg id="forwardPlot" viewBox="0 0 560 320" role="img" aria-label="Forward KL plot"></svg>
+          <div class="stats-box">
+            <p><span>Loss</span><strong id="forwardLoss">—</strong></p>
+            <p><span>μ</span><strong id="forwardMu">—</strong></p>
+            <p><span>σ</span><strong id="forwardSigma">—</strong></p>
+          </div>
+        </article>
+      </section>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
